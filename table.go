@@ -67,16 +67,23 @@ func (t *Table) AddRow(row []string, style RowStyle) {
 func (t *Table) Render() {
 	originalWidths := make([]int, len(t.Header))
 
+	// account for data rows using display width
 	for _, row := range t.Rows {
 		for j, cell := range row {
-			if originalWidths[j] < len(cell) {
-				originalWidths[j] = len(cell)
+			if originalWidths[j] < runewidth.StringWidth(cell) {
+				originalWidths[j] = runewidth.StringWidth(cell)
 			}
 		}
 	}
+	// account for header cells too
+	for j, cell := range t.Header {
+		if originalWidths[j] < runewidth.StringWidth(cell) {
+			originalWidths[j] = runewidth.StringWidth(cell)
+		}
+	}
 
-	// initialise with original size and reduce interatively
-	widths := originalWidths
+	// initialise with original size and reduce iteratively
+	widths := append([]int(nil), originalWidths...)
 
 	// account for gaps of 2 chrs
 	widthBudget := t.Width - TABLE_COL_GAP*(len(t.Header)-1)
