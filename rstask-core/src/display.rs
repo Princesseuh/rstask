@@ -247,9 +247,10 @@ impl TaskSet {
 
                     if week != last_week {
                         if let Some(t) = table
-                            && !t.rows.is_empty() {
-                                t.render();
-                            }
+                            && !t.rows.is_empty()
+                        {
+                            t.render();
+                        }
 
                         println!(
                             "\n\n> Week {}, starting {}\n",

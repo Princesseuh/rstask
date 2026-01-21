@@ -394,9 +394,10 @@ impl TaskSet {
             }
 
             if let Some(task_resolved) = task.resolved
-                && task_resolved > project.resolved {
-                    project.resolved = task_resolved;
-                }
+                && task_resolved > project.resolved
+            {
+                project.resolved = task_resolved;
+            }
 
             if task.status == STATUS_RESOLVED {
                 project.tasks_resolved += 1;

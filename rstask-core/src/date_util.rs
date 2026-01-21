@@ -56,9 +56,10 @@ pub fn parse_str_to_date(date_str: &str) -> Result<chrono::DateTime<Local>> {
 
     // Check for next-[weekday], this-[weekday]
     if let Some((selector, rest)) = lower.split_once('-')
-        && let Some(date) = weekday_str_to_time(rest, selector) {
-            return Ok(date);
-        }
+        && let Some(date) = weekday_str_to_time(rest, selector)
+    {
+        return Ok(date);
+    }
 
     // Check for [weekday]
     if let Some(date) = weekday_str_to_time(&lower, "") {
@@ -83,11 +84,12 @@ pub fn parse_str_to_date(date_str: &str) -> Result<chrono::DateTime<Local>> {
     // Try DD (day of month)
     if let Ok(day) = date_str.parse::<u32>()
         && (1..=31).contains(&day)
-            && let Some(naive_date) = NaiveDate::from_ymd_opt(now.year(), now.month(), day) {
-                return Ok(Local
-                    .from_local_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
-                    .unwrap());
-            }
+        && let Some(naive_date) = NaiveDate::from_ymd_opt(now.year(), now.month(), day)
+    {
+        return Ok(Local
+            .from_local_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
+            .unwrap());
+    }
 
     Err(crate::RstaskError::Parse(format!(
         "Invalid due date format: {}\nExpected format: YYYY-MM-DD, MM-DD or DD, relative date like 'next-monday', 'today', etc.",

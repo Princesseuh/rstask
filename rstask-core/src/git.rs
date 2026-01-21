@@ -37,10 +37,11 @@ pub fn git_commit(repo_path: &Path, message: &str) -> Result<()> {
 
     // If diff-index returns 0, no changes
     if let Ok(status) = diff_status
-        && status.success() {
-            eprintln!("No changes detected");
-            return Ok(());
-        }
+        && status.success()
+    {
+        eprintln!("No changes detected");
+        return Ok(());
+    }
 
     // Commit with output shown
     let commit_status = Command::new("git")
