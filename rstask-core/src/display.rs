@@ -114,11 +114,11 @@ impl TaskSet {
             let critical_in_view = self
                 .tasks()
                 .iter()
-                .filter(|t| !t.filtered && t.priority == PRIORITY_CRITICAL)
+                .filter(|t| t.priority == PRIORITY_CRITICAL)
                 .count();
 
             let total_critical = self
-                .tasks()
+                .all_tasks()
                 .iter()
                 .filter(|t| {
                     t.priority == PRIORITY_CRITICAL && !HIDDEN_STATUSES.contains(&t.status.as_str())
@@ -141,12 +141,7 @@ impl TaskSet {
 
     /// Renders tasks as JSON
     pub fn render_json(&self) -> Result<()> {
-        let tasks: Vec<_> = self
-            .tasks()
-            .iter()
-            .filter(|t| !t.filtered)
-            .map(|t| t.to_json())
-            .collect();
+        let tasks: Vec<_> = self.tasks().iter().map(|t| t.to_json()).collect();
         let json = serde_json::to_string_pretty(&tasks)?;
         println!("{}", json);
         Ok(())
@@ -154,18 +149,12 @@ impl TaskSet {
 
     /// Renders tasks as a table
     pub fn render_table(&self, truncate: bool) -> Result<()> {
-        let tasks: Vec<&Task> = self.tasks().iter().filter(|t| !t.filtered).collect();
+        let tasks = self.tasks();
         let total = tasks.len();
 
-        if self.tasks().is_empty() {
+        if tasks.is_empty() {
             println!("No tasks found. Run `rstask help` for instructions.");
             return Ok(());
-        }
-
-        if tasks.is_empty() {
-            return Err(crate::RstaskError::Other(
-                "No matching tasks in given context or filter.".to_string(),
-            ));
         }
 
         if tasks.len() == 1 {
@@ -239,7 +228,7 @@ impl TaskSet {
             let mut table: Option<Table> = None;
             let mut last_week = 0;
 
-            let tasks: Vec<&Task> = self.tasks().iter().filter(|t| !t.filtered).collect();
+            let tasks = self.tasks();
 
             for task in &tasks {
                 if let Some(resolved) = task.resolved {

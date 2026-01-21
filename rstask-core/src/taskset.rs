@@ -101,6 +101,14 @@ impl TaskSet {
             }
         }
 
+        // hide some tasks by default. This is useful for things like templates and
+        // recurring tasks which are shown either directly or with show- commands
+        for task in &mut ts.tasks {
+            if HIDDEN_STATUSES.contains(&task.status.as_str()) {
+                task.filtered = true;
+            }
+        }
+
         Ok(ts)
     }
 
@@ -175,12 +183,19 @@ impl TaskSet {
     /// Filters tasks by a query
     pub fn filter(&mut self, query: &Query) {
         for task in &mut self.tasks {
-            task.filtered = !task.matches_filter(query);
+            if !task.matches_filter(query) {
+                task.filtered = true;
+            }
         }
     }
 
-    /// Returns all tasks
-    pub fn tasks(&self) -> &[Task] {
+    /// Returns unfiltered tasks only
+    pub fn tasks(&self) -> Vec<&Task> {
+        self.tasks.iter().filter(|t| !t.filtered).collect()
+    }
+
+    /// Returns all tasks regardless of filtered status
+    pub fn all_tasks(&self) -> &[Task] {
         &self.tasks
     }
 

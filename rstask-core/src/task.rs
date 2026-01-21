@@ -98,7 +98,7 @@ pub struct Task {
     #[serde(skip)]
     pub write_pending: bool,
 
-    #[serde(skip)]
+    #[serde(skip_serializing, default)]
     pub id: i32,
 
     #[serde(skip)]

@@ -98,9 +98,9 @@ pub fn cmd_context(
     query: &Query,
     args: &[String],
 ) -> Result<()> {
-    if args.len() < 3 {
+    if args.len() < 2 {
         println!("{}", ctx);
-    } else if args[2] == "none" {
+    } else if args[1] == "none" {
         state.set_context(Query::default())?;
     } else {
         state.set_context(query.clone())?;
@@ -111,7 +111,7 @@ pub fn cmd_context(
 }
 
 /// Mark tasks as done/resolved
-pub fn cmd_done(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
+pub fn cmd_done(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
     if query.ids.is_empty() {
         return Err(RstaskError::Parse(
             "at least one task ID required".to_string(),
@@ -119,8 +119,9 @@ pub fn cmd_done(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
     }
 
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
-    let merged_query = query.merge(ctx);
 
+    // iterate over IDs instead of filtering; it's clearer and enables us to
+    // test each ID exists, and ignore context/operators
     for id in &query.ids {
         let task = ts.must_get_by_id(*id);
 
@@ -139,7 +140,6 @@ pub fn cmd_done(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
         ts.must_update_task(task)?;
     }
 
-    ts.apply_modifications(&merged_query)?;
     ts.save_pending_changes()?;
 
     let task_word = if query.ids.len() == 1 {
@@ -205,58 +205,98 @@ pub fn cmd_help(args: &[String]) {
     crate::help::show_help(cmd);
 }
 
-/// Show task log/history
+/// Log a completed task immediately
 pub fn cmd_log(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
+    if query.text.is_empty() {
+        return Err(RstaskError::Parse("task description required".to_string()));
+    }
+
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
+
+    ctx.print_context_description();
     let merged_query = query.merge(ctx);
 
-    ts.filter(&merged_query);
-    ts.display_by_week()?;
+    let task = Task {
+        write_pending: true,
+        status: STATUS_RESOLVED.to_string(),
+        summary: merged_query.text.clone(),
+        tags: merged_query.tags.clone(),
+        project: merged_query.project.clone(),
+        priority: merged_query.priority.clone(),
+        due: merged_query.due,
+        resolved: Some(Utc::now()),
+        ..Default::default()
+    };
+
+    let task = ts.must_load_task(task)?;
+    ts.save_pending_changes()?;
+    git_commit(&conf.repo, &format!("Logged {}", task.summary))?;
 
     Ok(())
 }
 
 /// Modify existing tasks
 pub fn cmd_modify(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
-    if query.ids.is_empty() {
-        return Err(RstaskError::Parse(
-            "at least one task ID required".to_string(),
-        ));
+    if !query.has_operators() {
+        return Err(RstaskError::Parse("no operations specified".to_string()));
     }
 
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
-    let merged_query = query.merge(ctx);
 
-    // Apply modifications to selected tasks
-    for id in &query.ids {
-        let task = ts.must_get_by_id(*id);
-        let mut task = task.clone();
-        task.modify(&merged_query);
-        task.write_pending = true;
-        ts.must_update_task(task)?;
-    }
+    if query.ids.is_empty() {
+        // Apply to all tasks in context
+        ts.filter(ctx);
 
-    ts.save_pending_changes()?;
+        if crate::util::stdout_is_tty() {
+            let task_count = ts.tasks().len();
+            crate::util::confirm_or_abort(&format!(
+                "no IDs specified. Apply to all {} tasks in current context?",
+                task_count
+            ))?;
+        }
 
-    let task_word = if query.ids.len() == 1 {
-        "task"
+        let tasks_to_modify: Vec<_> = ts.tasks().iter().map(|t| (*t).clone()).collect();
+        for mut task in tasks_to_modify {
+            task.modify(query);
+            task.write_pending = true;
+            ts.must_update_task(task.clone())?;
+            ts.save_pending_changes()?;
+            git_commit(&conf.repo, &format!("Modified {}", task.summary))?;
+        }
     } else {
-        "tasks"
-    };
-    git_commit(
-        &conf.repo,
-        &format!("Modified {} {}", query.ids.len(), task_word),
-    )?;
+        // Apply to specified task IDs
+        for id in &query.ids {
+            let task = ts.must_get_by_id(*id);
+            let mut task = task.clone();
+            task.modify(query);
+            task.write_pending = true;
+            ts.must_update_task(task.clone())?;
+            ts.save_pending_changes()?;
+            git_commit(&conf.repo, &format!("Modified {}", task.summary))?;
+        }
+    }
 
     Ok(())
 }
 
 /// Show next/pending tasks (default view)
 pub fn cmd_next(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
-    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, true)?;
-    let merged_query = query.merge(ctx);
+    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
 
-    ts.filter(&merged_query);
+    let filter_query = if !query.ids.is_empty() {
+        // addressing task by ID, ignores context
+        if query.has_operators() {
+            return Err(RstaskError::Parse(
+                "operators not valid when addressing task by ID".to_string(),
+            ));
+        }
+        query.clone()
+    } else {
+        // apply context
+        query.merge(ctx)
+    };
+
+    ts.filter(&filter_query);
     ts.display_by_next(ctx, true)?;
 
     Ok(())
@@ -406,12 +446,12 @@ pub fn cmd_show_projects(conf: &Config, ctx: &Query, query: &Query) -> Result<()
 
 /// Show open tasks (pending + active + paused)
 pub fn cmd_show_open(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
-    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, true)?;
+    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
     let merged_query = query.merge(ctx);
 
     ts.filter(&merged_query);
     // Don't filter by status - open means not resolved
-    ts.display_by_next(ctx, true)?;
+    ts.display_by_next(ctx, false)?;
 
     Ok(())
 }
@@ -433,6 +473,7 @@ pub fn cmd_show_resolved(conf: &Config, ctx: &Query, query: &Query) -> Result<()
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, true)?;
     let merged_query = query.merge(ctx);
 
+    ts.unhide();
     ts.filter(&merged_query);
     ts.filter_by_status(STATUS_RESOLVED);
     ts.display_by_week()?;
@@ -469,11 +510,13 @@ pub fn cmd_show_tags(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
 
 /// Show template tasks
 pub fn cmd_show_templates(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
-    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, true)?;
-    let merged_query = query.merge(ctx);
+    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
 
-    ts.filter(&merged_query);
+    ts.unhide();
     ts.filter_by_status(STATUS_TEMPLATE);
+
+    let merged_query = query.merge(ctx);
+    ts.filter(&merged_query);
     ts.display_by_next(ctx, true)?;
 
     Ok(())

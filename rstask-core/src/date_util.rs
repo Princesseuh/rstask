@@ -29,7 +29,7 @@ fn weekday_str_to_time(date_str: &str, selector: &str) -> Option<chrono::DateTim
     let target_date = match selector {
         "next" => start_of_day(now + Days::new((days_difference + 7) as u64)),
         "this" | "" => {
-            if days_difference < 0 {
+            if days_difference <= 0 {
                 start_of_day(now + Days::new((days_difference + 7) as u64))
             } else {
                 start_of_day(now + Days::new(days_difference as u64))
@@ -74,11 +74,15 @@ pub fn parse_str_to_date(date_str: &str) -> Result<chrono::DateTime<Local>> {
     }
 
     // Try MM-DD
-    if let Ok(naive_date) = NaiveDate::parse_from_str(date_str, "%m-%d") {
-        let with_year = naive_date.with_year(now.year()).unwrap();
-        return Ok(Local
-            .from_local_datetime(&with_year.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap());
+    if date_str.contains('-') && date_str.split('-').count() == 2 {
+        let parts: Vec<&str> = date_str.split('-').collect();
+        if let (Ok(month), Ok(day)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
+            if let Some(naive_date) = NaiveDate::from_ymd_opt(now.year(), month, day) {
+                return Ok(Local
+                    .from_local_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
+                    .unwrap());
+            }
+        }
     }
 
     // Try DD (day of month)
