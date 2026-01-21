@@ -55,8 +55,8 @@ fn main() {
     let mut ctx = state.context.clone();
 
     // Check for context override from environment variable
-    if let Ok(ctx_from_env) = env::var("RSTASK_CONTEXT") {
-        if !ctx_from_env.is_empty() {
+    if let Ok(ctx_from_env) = env::var("RSTASK_CONTEXT")
+        && !ctx_from_env.is_empty() {
             if query.cmd == CMD_CONTEXT && args.len() >= 2 {
                 eprintln!("Error: setting context not allowed while RSTASK_CONTEXT is set");
                 process::exit(1);
@@ -74,7 +74,6 @@ fn main() {
                 }
             };
         }
-    }
 
     // Check if we ignore context with the "--" token
     if query.ignore_context {

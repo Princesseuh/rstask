@@ -76,13 +76,12 @@ pub fn parse_str_to_date(date_str: &str) -> Result<chrono::DateTime<Local>> {
     // Try MM-DD
     if date_str.contains('-') && date_str.split('-').count() == 2 {
         let parts: Vec<&str> = date_str.split('-').collect();
-        if let (Ok(month), Ok(day)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
-            if let Some(naive_date) = NaiveDate::from_ymd_opt(now.year(), month, day) {
+        if let (Ok(month), Ok(day)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>())
+            && let Some(naive_date) = NaiveDate::from_ymd_opt(now.year(), month, day) {
                 return Ok(Local
                     .from_local_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
                     .unwrap());
             }
-        }
     }
 
     // Try DD (day of month)
