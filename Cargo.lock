@@ -550,18 +550,44 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "rstask"
-version = "0.26.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
- "rstask-core",
+ "rstask-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json",
  "tempfile",
 ]
 
 [[package]]
 name = "rstask-core"
-version = "0.26.0"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "chrono",
+ "colored",
+ "git2",
+ "home",
+ "lazy_static",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "terminal_size",
+ "termion",
+ "thiserror",
+ "unicode-width",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "rstask-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1d6e9edbad6550b1540f94ca96365d6fa86334e148bc850db01afb39bcef094"
 dependencies = [
  "anyhow",
  "bincode",

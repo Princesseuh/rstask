@@ -1,15 +1,18 @@
 [package]
 name = "rstask"
-version = "0.26.0"
-edition = "2024"
-license = "MIT"
+description = "Rust Port of dstask"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "rstask"
 path = "src/main.rs"
 
 [dependencies]
-rstask-core = { path = "../rstask-core" }
+rstask-core = "0.1"
 anyhow.workspace = true
 
 [dev-dependencies]

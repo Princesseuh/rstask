@@ -1,5 +1,6 @@
 [package]
 name = "rstask-core"
+description = "Core library for rstask"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
