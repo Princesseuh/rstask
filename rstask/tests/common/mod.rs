@@ -24,6 +24,23 @@ impl TestRepo {
 
         assert!(status.success(), "git init failed");
 
+        // Set git identity for the test repo
+        let status = Command::new("git")
+            .args(["config", "user.name", "Test User"])
+            .current_dir(&path)
+            .status()
+            .expect("Failed to set git user.name");
+
+        assert!(status.success(), "git config user.name failed");
+
+        let status = Command::new("git")
+            .args(["config", "user.email", "test@example.com"])
+            .current_dir(&path)
+            .status()
+            .expect("Failed to set git user.email");
+
+        assert!(status.success(), "git config user.email failed");
+
         TestRepo { dir, path }
     }
 

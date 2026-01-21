@@ -1,6 +1,6 @@
 mod common;
 
-use chrono::{Datelike, Local, NaiveDate, Weekday};
+use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone, Utc, Weekday};
 
 // Helper functions for date handling
 
@@ -38,6 +38,11 @@ fn assert_date_equal(expected: NaiveDate, actual: NaiveDate, msg: &str) {
     );
 }
 
+// Helper to convert UTC DateTime to local date for comparison
+fn utc_to_local_date(dt: DateTime<Utc>) -> NaiveDate {
+    dt.with_timezone(&Local).date_naive()
+}
+
 #[test]
 fn test_add_task_with_full_date() {
     let (_repo, cmd) = test_setup!();
@@ -49,7 +54,7 @@ fn test_add_task_with_full_date() {
     result.assert_success();
 
     let tasks = result.parse_tasks();
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_test_date(2025, 7, 1), task_due, "Full date parsing");
     assert_eq!(tasks[0].summary, "Task with full date");
 }
@@ -65,7 +70,7 @@ fn test_add_task_with_month_day() {
     result.assert_success();
 
     let tasks = result.parse_tasks();
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     let current_year = Local::now().year();
     assert_date_equal(
         get_test_date(current_year, 7, 1),
@@ -86,7 +91,7 @@ fn test_add_task_with_day() {
     result.assert_success();
 
     let tasks = result.parse_tasks();
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     let now = Local::now().date_naive();
     assert_date_equal(
         get_test_date(now.year(), now.month(), 15),
@@ -107,7 +112,7 @@ fn test_add_task_with_today() {
     result.assert_success();
 
     let tasks = result.parse_tasks();
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_current_date(), task_due, "Today keyword");
     assert_eq!(tasks[0].summary, "Task due today");
 }
@@ -123,7 +128,7 @@ fn test_add_task_with_yesterday() {
     result.assert_success();
 
     let tasks = result.parse_tasks();
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_relative_date(-1), task_due, "Yesterday keyword");
     assert_eq!(tasks[0].summary, "Task due yesterday");
 }
@@ -139,7 +144,7 @@ fn test_add_task_with_tomorrow() {
     result.assert_success();
 
     let tasks = result.parse_tasks();
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_relative_date(1), task_due, "Tomorrow keyword");
     assert_eq!(tasks[0].summary, "Task due tomorrow");
 }
@@ -170,7 +175,7 @@ fn test_add_task_with_weekdays() {
         result.assert_success();
 
         let tasks = result.parse_tasks();
-        let task_due = tasks[0].due.unwrap().date_naive();
+        let task_due = utc_to_local_date(tasks[0].due.unwrap());
         let expected_date = get_next_weekday(*weekday);
         assert_date_equal(
             expected_date,
@@ -199,7 +204,7 @@ fn test_filter_tasks_by_exact_date() {
 
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_test_date(2025, 7, 1), task_due, "Exact date filter");
     assert_eq!(tasks[0].summary, "Task 1");
 }
@@ -219,7 +224,7 @@ fn test_filter_tasks_by_today() {
 
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_current_date(), task_due, "Filter by today");
     assert_eq!(tasks[0].summary, "Task due today");
 }
@@ -302,8 +307,8 @@ fn test_filter_tasks_due_after() {
     assert_eq!(tasks.len(), 2);
     assert_eq!(tasks[0].summary, "Task 2");
     assert_eq!(tasks[1].summary, "Task 3");
-    let task1_due = tasks[0].due.unwrap().date_naive();
-    let task2_due = tasks[1].due.unwrap().date_naive();
+    let task1_due = utc_to_local_date(tasks[0].due.unwrap());
+    let task2_due = utc_to_local_date(tasks[1].due.unwrap());
     assert_date_equal(get_current_date(), task1_due, "After filter - task 2");
     assert_date_equal(get_relative_date(1), task2_due, "After filter - task 3");
 }
@@ -327,10 +332,10 @@ fn test_filter_tasks_due_before() {
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 2);
     assert_eq!(tasks[0].summary, "Task 1");
-    let task1_due = tasks[0].due.unwrap().date_naive();
+    let task1_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_relative_date(-1), task1_due, "Before filter - task 1");
     assert_eq!(tasks[1].summary, "Task 2");
-    let task2_due = tasks[1].due.unwrap().date_naive();
+    let task2_due = utc_to_local_date(tasks[1].due.unwrap());
     assert_date_equal(get_current_date(), task2_due, "Before filter - task 2");
 }
 
@@ -353,7 +358,7 @@ fn test_filter_tasks_due_on() {
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].summary, "Task 2");
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_current_date(), task_due, "On filter");
 }
 
@@ -394,7 +399,7 @@ fn test_modify_command_with_due_dates() {
 
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_test_date(2025, 6, 18), task_due, "Modified due date");
 }
 
@@ -413,7 +418,7 @@ fn test_templates_with_due_dates() {
 
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_test_date(2025, 10, 31), task_due, "Template due date");
 }
 
@@ -432,7 +437,7 @@ fn test_due_dates_merge_with_context() {
 
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_test_date(2025, 9, 1), task_due, "Context due date");
     assert_eq!(tasks[0].summary, "new task with context");
     assert!(tasks[0].tags.contains(&"work".to_string()));
@@ -459,7 +464,7 @@ fn test_next_command_shows_due_dates() {
         .find(|t| t.summary == "Task with due date")
         .expect("Task with due date should exist");
 
-    let task_due = task_with_due.due.unwrap().date_naive();
+    let task_due = utc_to_local_date(task_with_due.due.unwrap());
     assert_date_equal(get_current_date(), task_due, "Next shows due dates");
 }
 
@@ -485,7 +490,7 @@ fn test_show_resolved_displays_due_dates() {
     let resolved_tasks = result.parse_tasks();
     assert_eq!(resolved_tasks.len(), 1);
     assert_eq!(resolved_tasks[0].summary, "Completed task");
-    let task_due = resolved_tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(resolved_tasks[0].due.unwrap());
     assert_date_equal(get_current_date(), task_due, "Resolved task due date");
 }
 
@@ -567,7 +572,7 @@ fn test_combined_due_filters() {
     let tasks = result.parse_tasks();
     assert_eq!(tasks.len(), 1);
     assert_eq!(tasks[0].summary, "Task 1");
-    let task_due = tasks[0].due.unwrap().date_naive();
+    let task_due = utc_to_local_date(tasks[0].due.unwrap());
     assert_date_equal(get_current_date(), task_due, "Combined filters");
 }
 
