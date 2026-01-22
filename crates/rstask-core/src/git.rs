@@ -1,4 +1,3 @@
-// Placeholder for git module - to be implemented
 use crate::Result;
 use git2::Repository;
 use std::io::{self, Write};
@@ -118,6 +117,44 @@ pub fn git_commit(repo_path: &Path, message: &str) -> Result<()> {
     Ok(())
 }
 
+fn get_current_branch(repo_path: &str) -> Result<String> {
+    use std::process::Command;
+
+    let output = Command::new("git")
+        .args(["-C", repo_path, "branch", "--show-current"])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(crate::RstaskError::Other(
+            "failed to get current branch".to_string(),
+        ));
+    }
+
+    let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if branch.is_empty() {
+        return Err(crate::RstaskError::Other("not on a branch".to_string()));
+    }
+
+    Ok(branch)
+}
+
+fn has_upstream_branch(repo_path: &str, branch: &str) -> Result<bool> {
+    use std::process::Command;
+
+    let output = Command::new("git")
+        .args([
+            "-C",
+            repo_path,
+            "rev-parse",
+            "--abbrev-ref",
+            &format!("{}@{{upstream}}", branch),
+        ])
+        .output()?;
+
+    Ok(output.status.success())
+}
+
 pub fn git_pull(repo_path: &str) -> Result<()> {
     use std::process::Command;
 
@@ -143,9 +180,23 @@ pub fn git_pull(repo_path: &str) -> Result<()> {
 pub fn git_push(repo_path: &str) -> Result<()> {
     use std::process::Command;
 
-    let status = Command::new("git")
-        .args(["-C", repo_path, "push"])
-        .status()?;
+    // Get current branch name
+    let branch = get_current_branch(repo_path)?;
+
+    // Check if upstream is set
+    let has_upstream = has_upstream_branch(repo_path, &branch)?;
+
+    let status = if has_upstream {
+        // Normal push
+        Command::new("git")
+            .args(["-C", repo_path, "push"])
+            .status()?
+    } else {
+        // First push - set upstream tracking
+        Command::new("git")
+            .args(["-C", repo_path, "push", "-u", "origin", &branch])
+            .status()?
+    };
 
     if !status.success() {
         return Err(crate::RstaskError::Other("git push failed".to_string()));
