@@ -1,3 +1,4 @@
+use crate::preferences::Preferences;
 use std::env;
 use std::path::PathBuf;
 
@@ -12,6 +13,8 @@ pub struct Config {
     pub ids_file: PathBuf,
     /// Context from environment variable
     pub ctx_from_env_var: Option<String>,
+    /// User preferences
+    pub preferences: Preferences,
 }
 
 impl Config {
@@ -31,11 +34,14 @@ impl Config {
         let state_file = repo.join(".git").join("rstask").join("state.bin");
         let ids_file = repo.join(".git").join("rstask").join("ids.bin");
 
+        let preferences = Preferences::load();
+
         Config {
             repo,
             state_file,
             ids_file,
             ctx_from_env_var,
+            preferences,
         }
     }
 }

@@ -1,5 +1,6 @@
 use crate::Result;
 use crate::constants::*;
+use linkify::{LinkFinder, LinkKind};
 use std::io::{self, Write};
 use std::process::{Command, Stdio};
 use uuid::Uuid;
@@ -151,8 +152,18 @@ pub fn deduplicate_strings(strings: &mut Vec<String>) {
     strings.retain(|s| seen.insert(s.clone()));
 }
 
+/// Extracts URLs from text using linkify (similar to Go's xurls.Relaxed)
+pub fn extract_urls(text: &str) -> Vec<String> {
+    let mut finder = LinkFinder::new();
+    finder.kinds(&[LinkKind::Url]);
+    finder
+        .links(text)
+        .map(|link| link.as_str().to_string())
+        .collect()
+}
+
 /// Opens a URL in the default browser
-pub fn must_open_browser(url: &str) -> Result<()> {
+pub fn open_browser(url: &str) -> Result<()> {
     #[cfg(target_os = "linux")]
     let cmd = "xdg-open";
 
@@ -275,5 +286,14 @@ mod tests {
         ];
         deduplicate_strings(&mut vec);
         assert_eq!(vec, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    }
+
+    #[test]
+    fn test_extract_urls() {
+        let text = "Check out https://example.com and http://test.org for more info";
+        let urls = extract_urls(text);
+        assert_eq!(urls.len(), 2);
+        assert!(urls.contains(&"https://example.com".to_string()));
+        assert!(urls.contains(&"http://test.org".to_string()));
     }
 }

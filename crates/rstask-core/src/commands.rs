@@ -88,6 +88,7 @@ pub fn cmd_add(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
         git_commit(&conf.repo, &format!("Added {}: {}", task.id, task.summary))?;
     }
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -152,6 +153,7 @@ pub fn cmd_done(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
         &format!("Resolved {} {}", query.ids.len(), task_word),
     )?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -191,6 +193,7 @@ pub fn cmd_edit(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
     ts.save_pending_changes()?;
     git_commit(&conf.repo, "Edited task")?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -230,8 +233,9 @@ pub fn cmd_log(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
 
     let task = ts.must_load_task(task)?;
     ts.save_pending_changes()?;
-    git_commit(&conf.repo, &format!("Logged {}", task.summary))?;
+    git_commit(&conf.repo, &format!("Added {}", task.summary))?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -276,6 +280,7 @@ pub fn cmd_modify(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
         }
     }
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -326,6 +331,7 @@ pub fn cmd_note(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
     ts.save_pending_changes()?;
     git_commit(&conf.repo, "Updated task notes")?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -337,34 +343,32 @@ pub fn cmd_open(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
         ));
     }
 
-    let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
+    if query.has_operators() {
+        return Err(RstaskError::Parse(
+            "operators not valid in this context".to_string(),
+        ));
+    }
+
+    let ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
 
     for id in &query.ids {
         let task = ts.must_get_by_id(*id);
 
-        if task.status != STATUS_RESOLVED {
-            return Err(RstaskError::Other(format!("task {} is not resolved", id)));
+        // Extract URLs from task summary and notes
+        let text = format!("{} {}", task.summary, task.notes);
+        let urls = crate::util::extract_urls(&text);
+
+        if urls.is_empty() {
+            return Err(RstaskError::Other(format!(
+                "no URLs found in task {}",
+                task.id
+            )));
         }
 
-        let mut task = task.clone();
-        task.status = STATUS_PENDING.to_string();
-        task.resolved = None;
-        task.write_pending = true;
-
-        ts.must_update_task(task)?;
+        for url in urls {
+            crate::util::open_browser(&url)?;
+        }
     }
-
-    ts.save_pending_changes()?;
-
-    let task_word = if query.ids.len() == 1 {
-        "task"
-    } else {
-        "tasks"
-    };
-    git_commit(
-        &conf.repo,
-        &format!("Opened {} {}", query.ids.len(), task_word),
-    )?;
 
     Ok(())
 }
@@ -418,6 +422,7 @@ pub fn cmd_remove(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
         &format!("Removed {} {}", query.ids.len(), task_word),
     )?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -579,6 +584,7 @@ pub fn cmd_start(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
         &format!("Started {} {}", query.ids.len(), task_word),
     )?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -621,6 +627,7 @@ pub fn cmd_stop(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
         &format!("Stopped {} {}", query.ids.len(), task_word),
     )?;
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -683,6 +690,17 @@ pub fn cmd_sync(repo_path: &str) -> Result<()> {
     Ok(())
 }
 
+/// Automatically sync if configured to do so
+fn auto_sync_if_enabled(conf: &Config) -> Result<()> {
+    use crate::preferences::SyncFrequency;
+
+    if conf.preferences.sync_frequency == SyncFrequency::AfterEveryModification {
+        cmd_sync(conf.repo.to_str().unwrap())?;
+    }
+
+    Ok(())
+}
+
 /// Create a template task
 pub fn cmd_template(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
@@ -723,6 +741,7 @@ pub fn cmd_template(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
         ));
     }
 
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 
@@ -742,6 +761,7 @@ pub fn cmd_undo(conf: &Config, args: &[String]) -> Result<()> {
     }
 
     println!("Undone {} commit(s)", count);
+    auto_sync_if_enabled(conf)?;
     Ok(())
 }
 

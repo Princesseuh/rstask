@@ -23,6 +23,9 @@ termion.workspace = true
 unicode-width.workspace = true
 tempfile.workspace = true
 atty.workspace = true
+serde_styx = { version = "0.1.0", git = "https://github.com/bearcove/styx" }
+dirs.workspace = true
+linkify.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

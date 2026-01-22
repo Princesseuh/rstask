@@ -7,6 +7,7 @@ pub mod error;
 pub mod git;
 pub mod help;
 pub mod local_state;
+pub mod preferences;
 pub mod query;
 pub mod table;
 pub mod task;
@@ -15,6 +16,7 @@ pub mod util;
 
 pub use config::Config;
 pub use error::{Result, RstaskError};
+pub use preferences::{Preferences, SyncFrequency};
 pub use query::Query;
 pub use task::{SubTask, Task};
 pub use taskset::TaskSet;

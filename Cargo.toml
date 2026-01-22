@@ -26,6 +26,8 @@ atty = "0.2"
 git2 = "0.18"
 lazy_static = "1.4"
 home = "0.5"
+dirs = "5.0"
+linkify = "0.10"
 
 # Serialization for state files
 bincode = "1.3"
