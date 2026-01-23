@@ -159,7 +159,7 @@ pub fn cmd_done(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
 
 /// Edit a task in $EDITOR
 pub fn cmd_edit(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
-    use crate::util::{edit_string, is_valid_uuid4_string};
+    use crate::util::edit_string;
 
     if query.ids.len() != 1 {
         return Err(RstaskError::Parse(
@@ -170,24 +170,20 @@ pub fn cmd_edit(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
     let task = ts.must_get_by_id(query.ids[0]);
 
-    // Serialize task to YAML for editing
-    let yaml_str = serde_yaml::to_string(&task)?;
-    let edited = edit_string(&yaml_str)?;
+    // Serialize task to markdown with frontmatter for editing
+    let markdown_str = crate::frontmatter::task_to_markdown(task)?;
+    let edited = edit_string(&markdown_str)?;
 
-    // Parse edited YAML
-    let mut edited_task: Task = serde_yaml::from_str(&edited)?;
+    // Parse edited markdown
+    let edited_task =
+        crate::frontmatter::task_from_markdown(&edited, &task.uuid, &task.status, task.id)?;
 
-    // Validate UUID hasn't changed
+    // Validate UUID hasn't changed (should be guaranteed by task_from_markdown)
     if edited_task.uuid != task.uuid {
-        if is_valid_uuid4_string(&edited_task.uuid) {
-            return Err(RstaskError::Parse(
-                "task ID must not be edited (UUID field in yaml)".to_string(),
-            ));
-        } else {
-            return Err(RstaskError::InvalidUuid(edited_task.uuid.clone()));
-        }
+        return Err(RstaskError::Parse("task ID must not be edited".to_string()));
     }
 
+    let mut edited_task = edited_task;
     edited_task.write_pending = true;
     ts.must_update_task(edited_task)?;
     ts.save_pending_changes()?;

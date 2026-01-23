@@ -4,6 +4,7 @@ pub mod constants;
 pub mod date_util;
 pub mod display;
 pub mod error;
+pub mod frontmatter;
 pub mod git;
 pub mod help;
 pub mod local_state;

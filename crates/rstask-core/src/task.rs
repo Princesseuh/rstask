@@ -10,30 +10,30 @@ use crate::util::{is_valid_uuid4_string, must_get_repo_path};
 use crate::{Result, RstaskError};
 
 // Custom serialization module for DateTime fields to match Go's RFC3339 format
-mod datetime_rfc3339 {
+pub mod datetime_rfc3339 {
     use chrono::{DateTime, Utc};
-    use serde::{Deserialize, Deserializer, Serializer};
+    use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(dt: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(&date.to_rfc3339())
+        serializer.serialize_str(&dt.to_rfc3339())
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
         DateTime::parse_from_rfc3339(&s)
             .map(|dt| dt.with_timezone(&Utc))
             .map_err(serde::de::Error::custom)
     }
 }
 
-// Custom serialization for optional DateTime fields
-mod optional_datetime_rfc3339 {
+// Custom serialization module for Option<DateTime> fields
+pub mod optional_datetime_rfc3339 {
     use chrono::{DateTime, Utc};
     use serde::{Deserialize, Deserializer, Serializer};
 
@@ -374,7 +374,7 @@ impl Task {
     pub fn save_to_disk(&mut self, repo_path: &Path) -> Result<()> {
         self.write_pending = false;
 
-        let filepath = must_get_repo_path(repo_path, &self.status, &format!("{}.yml", self.uuid));
+        let filepath = must_get_repo_path(repo_path, &self.status, &format!("{}.md", self.uuid));
 
         if self.deleted {
             // Delete the task file
@@ -382,31 +382,35 @@ impl Task {
                 std::fs::remove_file(&filepath)?;
             }
         } else {
-            // Save task to disk
-            // Create a copy and clear status for serialization
-            let mut task_copy = self.clone();
-            task_copy.status.clear();
-
-            let yaml_data = serde_yaml::to_string(&task_copy)?;
+            // Save task to disk using markdown with frontmatter
+            let markdown_data = crate::frontmatter::task_to_markdown(self)?;
 
             // Ensure directory exists
             if let Some(parent) = filepath.parent() {
                 std::fs::create_dir_all(parent)?;
             }
 
-            std::fs::write(&filepath, yaml_data)?;
+            std::fs::write(&filepath, markdown_data)?;
         }
 
-        // Delete task from other status directories
+        // Delete task from other status directories (both .md and legacy .yml)
         for status in ALL_STATUSES {
             if *status == self.status {
                 continue;
             }
 
+            // Delete .md file
             let other_filepath =
-                must_get_repo_path(repo_path, status, &format!("{}.yml", self.uuid));
+                must_get_repo_path(repo_path, status, &format!("{}.md", self.uuid));
             if other_filepath.exists() {
                 std::fs::remove_file(&other_filepath)?;
+            }
+
+            // Delete legacy .yml file if it exists
+            let legacy_filepath =
+                must_get_repo_path(repo_path, status, &format!("{}.yml", self.uuid));
+            if legacy_filepath.exists() {
+                std::fs::remove_file(&legacy_filepath)?;
             }
         }
 
@@ -462,7 +466,19 @@ pub fn unmarshal_task(
     ids: &std::collections::HashMap<String, i32>,
     status: &str,
 ) -> Result<Task> {
-    if filename.len() != TASK_FILENAME_LEN {
+    // Support both .md (new format) and .yml (legacy format)
+    let is_markdown = filename.ends_with(".md");
+    let is_yaml = filename.ends_with(".yml");
+
+    if !is_markdown && !is_yaml {
+        return Err(RstaskError::Parse(format!(
+            "invalid filename extension: {}",
+            filename
+        )));
+    }
+
+    let expected_len = if is_markdown { 39 } else { 40 }; // UUID(36) + ".md"(3) or ".yml"(4)
+    if filename.len() != expected_len {
         return Err(RstaskError::Parse(format!(
             "filename does not encode UUID {} (wrong length)",
             filename
@@ -478,13 +494,19 @@ pub fn unmarshal_task(
     }
 
     let id = ids.get(uuid).copied().unwrap_or(0);
-
     let data = std::fs::read_to_string(path)?;
-    let mut task: Task = serde_yaml::from_str(&data)?;
 
-    task.uuid = uuid.to_string();
-    task.status = status.to_string();
-    task.id = id;
+    let task = if is_markdown {
+        // Parse markdown with frontmatter
+        crate::frontmatter::task_from_markdown(&data, uuid, status, id)?
+    } else {
+        // Parse legacy YAML format
+        let mut task: Task = serde_yaml::from_str(&data)?;
+        task.uuid = uuid.to_string();
+        task.status = status.to_string();
+        task.id = id;
+        task
+    };
 
     Ok(task)
 }

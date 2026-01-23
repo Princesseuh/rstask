@@ -132,7 +132,7 @@ pub fn must_edit_bytes(data: &[u8], tmp_filename: &str) -> Result<Vec<u8>> {
 
 /// Opens an editor to edit a string, returns the edited content
 pub fn edit_string(content: &str) -> Result<String> {
-    let bytes = must_edit_bytes(content.as_bytes(), "rstask-edit.txt")?;
+    let bytes = must_edit_bytes(content.as_bytes(), "rstask-edit.md")?;
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 

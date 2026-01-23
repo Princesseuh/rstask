@@ -90,7 +90,9 @@ impl TestCmd {
 
     pub fn run(&self, args: &[&str]) -> TestResult {
         let mut cmd = Command::new(&self.binary_path);
-        cmd.args(args).env("RSTASK_GIT_REPO", &self.repo_path);
+        cmd.args(args)
+            .env("RSTASK_GIT_REPO", &self.repo_path)
+            .env("XDG_CONFIG_HOME", "/nonexistent"); // Prevent loading user's config
 
         if let Some(ctx) = &self.context {
             cmd.env("RSTASK_CONTEXT", ctx);
