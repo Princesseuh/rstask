@@ -116,6 +116,7 @@ fn main() {
         CMD_SHOW_ACTIVE => cmd_show_active(&conf, &ctx, &query),
         CMD_SHOW_PAUSED => cmd_show_paused(&conf, &ctx, &query),
         CMD_OPEN => cmd_open(&conf, &ctx, &query),
+        CMD_SHOW => cmd_show(&conf, &ctx, &query),
         CMD_SHOW_PROJECTS => cmd_show_projects(&conf, &ctx, &query),
         CMD_SHOW_TAGS => cmd_show_tags(&conf, &ctx, &query),
         CMD_SHOW_TEMPLATES => cmd_show_templates(&conf, &ctx, &query),

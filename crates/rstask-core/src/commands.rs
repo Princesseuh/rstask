@@ -11,6 +11,7 @@ use crate::{
 };
 use chrono::Utc;
 use std::io::{self, Write};
+use termimad::MadSkin;
 
 /// Add a new task to the task database
 pub fn cmd_add(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
@@ -482,6 +483,39 @@ pub fn cmd_show_open(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
     ts.filter(&merged_query);
     // Don't filter by status - open means not resolved
     ts.display_by_next(ctx, false)?;
+
+    Ok(())
+}
+
+/// Show a single task with rendered markdown notes
+pub fn cmd_show(conf: &Config, _ctx: &Query, query: &Query) -> Result<()> {
+    let ts = TaskSet::load(&conf.repo, &conf.ids_file, true)?;
+
+    // Get the task ID from the query
+    if query.ids.is_empty() {
+        return Err(RstaskError::Parse(
+            "show command requires a task ID".to_string(),
+        ));
+    }
+
+    let id = query.ids[0];
+    let task = ts
+        .get_by_id(id)
+        .ok_or_else(|| RstaskError::TaskNotFound(format!("Task with ID {} not found", id)))?;
+
+    // Display task metadata
+    task.display();
+
+    // Render notes with termimad if present
+    if !task.notes.is_empty() {
+        println!("\nNotes:");
+        println!("{}", "─".repeat(80));
+
+        let skin = MadSkin::default();
+        skin.print_text(&task.notes);
+
+        println!("{}", "─".repeat(80));
+    }
 
     Ok(())
 }

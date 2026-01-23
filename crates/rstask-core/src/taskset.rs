@@ -79,8 +79,26 @@ impl TaskSet {
                 continue;
             }
 
-            for entry in std::fs::read_dir(&dir)? {
-                let entry = entry?;
+            // Collect all entries first
+            let mut entries: Vec<_> = std::fs::read_dir(&dir)?.filter_map(|e| e.ok()).collect();
+
+            // Sort entries to prioritize .md files over .yml files
+            // This ensures if both formats exist for the same task, .md is loaded
+            entries.sort_by(|a, b| {
+                let a_name = a.file_name();
+                let b_name = b.file_name();
+                let a_str = a_name.to_string_lossy();
+                let b_str = b_name.to_string_lossy();
+
+                // .md files should come before .yml files
+                match (a_str.ends_with(".md"), b_str.ends_with(".md")) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => a_str.cmp(&b_str),
+                }
+            });
+
+            for entry in entries {
                 let filename = entry.file_name();
                 let filename_str = filename.to_string_lossy();
 

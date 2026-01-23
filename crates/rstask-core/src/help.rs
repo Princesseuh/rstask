@@ -226,6 +226,15 @@ this command.
 "#
         }
 
+        CMD_SHOW => {
+            r#"Usage: rstask show <id>
+Example: rstask show 15
+
+Display a single task with full details. If the task has notes (markdown content),
+they will be rendered with formatting to the terminal.
+"#
+        }
+
         CMD_SHOW_PROJECTS => {
             r#"Usage: rstask show-projects
 
@@ -266,6 +275,7 @@ edit              : Edit task with text editor
 undo              : Undo last n commits
 sync              : Pull then push to git repository, automatic merge commit.
 open              : Open all URLs found in summary/annotations
+show              : Display a single task with rendered markdown notes
 git               : Pass a command to git in the repository. Used for push/pull.
 remove            : Remove a task (use to remove tasks added by mistake)
 show-projects     : List projects with completion status

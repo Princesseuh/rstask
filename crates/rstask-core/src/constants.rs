@@ -45,6 +45,7 @@ pub const CMD_EDIT: &str = "edit";
 pub const CMD_UNDO: &str = "undo";
 pub const CMD_SYNC: &str = "sync";
 pub const CMD_OPEN: &str = "open";
+pub const CMD_SHOW: &str = "show";
 pub const CMD_GIT: &str = "git";
 pub const CMD_SHOW_NEXT: &str = "show-next";
 pub const CMD_SHOW_PROJECTS: &str = "show-projects";
@@ -150,6 +151,7 @@ pub const ALL_CMDS: &[&str] = &[
     CMD_UNDO,
     CMD_SYNC,
     CMD_OPEN,
+    CMD_SHOW,
     CMD_GIT,
     CMD_SHOW_NEXT,
     CMD_SHOW_PROJECTS,
