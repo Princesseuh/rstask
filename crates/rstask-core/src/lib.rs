@@ -16,7 +16,7 @@ pub mod util;
 
 pub use config::Config;
 pub use error::{Result, RstaskError};
-pub use preferences::{Preferences, SyncFrequency};
+pub use preferences::{BulkCommitStrategy, Preferences, SyncFrequency};
 pub use query::Query;
 pub use task::{SubTask, Task};
 pub use taskset::TaskSet;

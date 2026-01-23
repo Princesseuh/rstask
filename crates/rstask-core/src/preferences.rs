@@ -16,16 +16,33 @@ impl Default for SyncFrequency {
     }
 }
 
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum BulkCommitStrategy {
+    Single,
+    PerTask,
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for BulkCommitStrategy {
+    fn default() -> Self {
+        BulkCommitStrategy::Single
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Preferences {
     #[serde(default)]
     pub sync_frequency: SyncFrequency,
+    #[serde(default)]
+    pub bulk_commit_strategy: BulkCommitStrategy,
 }
 
 impl Default for Preferences {
     fn default() -> Self {
         Preferences {
             sync_frequency: SyncFrequency::Never,
+            bulk_commit_strategy: BulkCommitStrategy::PerTask,
         }
     }
 }

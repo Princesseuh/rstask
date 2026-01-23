@@ -240,7 +240,10 @@ pub fn cmd_log(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
 }
 
 /// Modify existing tasks
+/// Modify one or more tasks
 pub fn cmd_modify(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
+    use crate::preferences::BulkCommitStrategy;
+
     if !query.has_operators() {
         return Err(RstaskError::Parse("no operations specified".to_string()));
     }
@@ -260,15 +263,30 @@ pub fn cmd_modify(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
         }
 
         let tasks_to_modify: Vec<_> = ts.tasks().iter().map(|t| (*t).clone()).collect();
+        let task_count = tasks_to_modify.len();
+
         for mut task in tasks_to_modify {
             task.modify(query);
             task.write_pending = true;
             ts.must_update_task(task.clone())?;
             ts.save_pending_changes()?;
-            git_commit(&conf.repo, &format!("Modified {}", task.summary))?;
+
+            if conf.preferences.bulk_commit_strategy == BulkCommitStrategy::PerTask {
+                git_commit(&conf.repo, &format!("Modified {}", task.summary))?;
+            }
+        }
+
+        if conf.preferences.bulk_commit_strategy == BulkCommitStrategy::Single && task_count > 0 {
+            let task_word = if task_count == 1 { "task" } else { "tasks" };
+            git_commit(
+                &conf.repo,
+                &format!("Modified {} {}", task_count, task_word),
+            )?;
         }
     } else {
         // Apply to specified task IDs
+        let task_count = query.ids.len();
+
         for id in &query.ids {
             let task = ts.must_get_by_id(*id);
             let mut task = task.clone();
@@ -276,7 +294,18 @@ pub fn cmd_modify(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
             task.write_pending = true;
             ts.must_update_task(task.clone())?;
             ts.save_pending_changes()?;
-            git_commit(&conf.repo, &format!("Modified {}", task.summary))?;
+
+            if conf.preferences.bulk_commit_strategy == BulkCommitStrategy::PerTask {
+                git_commit(&conf.repo, &format!("Modified {}", task.summary))?;
+            }
+        }
+
+        if conf.preferences.bulk_commit_strategy == BulkCommitStrategy::Single && task_count > 0 {
+            let task_word = if task_count == 1 { "task" } else { "tasks" };
+            git_commit(
+                &conf.repo,
+                &format!("Modified {} {}", task_count, task_word),
+            )?;
         }
     }
 
@@ -657,19 +686,34 @@ fn auto_sync_if_enabled(conf: &Config) -> Result<()> {
 
 /// Create a template task
 pub fn cmd_template(conf: &Config, ctx: &Query, query: &Query) -> Result<()> {
+    use crate::preferences::BulkCommitStrategy;
+
     let mut ts = TaskSet::load(&conf.repo, &conf.ids_file, false)?;
 
     if !query.ids.is_empty() {
         // Convert existing task(s) to template(s)
+        let task_count = query.ids.len();
+
         for id in &query.ids {
             let task = ts.must_get_by_id(*id);
             let mut task = task.clone();
             task.status = STATUS_TEMPLATE.to_string();
             task.write_pending = true;
             ts.must_update_task(task.clone())?;
-            git_commit(&conf.repo, &format!("Changed {} to Template", task.summary))?;
+
+            if conf.preferences.bulk_commit_strategy == BulkCommitStrategy::PerTask {
+                git_commit(&conf.repo, &format!("Changed {} to Template", task.summary))?;
+            }
         }
         ts.save_pending_changes()?;
+
+        if conf.preferences.bulk_commit_strategy == BulkCommitStrategy::Single && task_count > 0 {
+            let task_word = if task_count == 1 { "task" } else { "tasks" };
+            git_commit(
+                &conf.repo,
+                &format!("Changed {} {} to Template", task_count, task_word),
+            )?;
+        }
     } else if !query.text.is_empty() {
         // Create new template
         let merged_query = query.merge(ctx);
