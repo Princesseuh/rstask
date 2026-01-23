@@ -419,10 +419,16 @@ impl Task {
 
     /// Deletes task from disk
     pub fn delete_from_disk(&self, repo_path: &Path) -> Result<()> {
-        // Delete from current status directory
-        let filepath = must_get_repo_path(repo_path, &self.status, &format!("{}.yml", self.uuid));
-        if filepath.exists() {
-            std::fs::remove_file(&filepath)?;
+        // Delete both .yml and .md files from current status directory
+        let yml_filepath =
+            must_get_repo_path(repo_path, &self.status, &format!("{}.yml", self.uuid));
+        if yml_filepath.exists() {
+            std::fs::remove_file(&yml_filepath)?;
+        }
+
+        let md_filepath = must_get_repo_path(repo_path, &self.status, &format!("{}.md", self.uuid));
+        if md_filepath.exists() {
+            std::fs::remove_file(&md_filepath)?;
         }
 
         // Also check other status directories
@@ -430,10 +436,17 @@ impl Task {
             if *status == self.status {
                 continue;
             }
-            let other_filepath =
+
+            let other_yml_filepath =
                 must_get_repo_path(repo_path, status, &format!("{}.yml", self.uuid));
-            if other_filepath.exists() {
-                std::fs::remove_file(&other_filepath)?;
+            if other_yml_filepath.exists() {
+                std::fs::remove_file(&other_yml_filepath)?;
+            }
+
+            let other_md_filepath =
+                must_get_repo_path(repo_path, status, &format!("{}.md", self.uuid));
+            if other_md_filepath.exists() {
+                std::fs::remove_file(&other_md_filepath)?;
             }
         }
 
